@@ -3,6 +3,7 @@ import torch.nn as nn
 
 from torch.nn.modules.linear import Linear
 from .SubLayers import MultiHeadAttention, PositionwiseFeedForward
+from .group_query import GroupedQueryAttention
 import torch
 from .embed import DataEmbedding, CustomEmbedding
 import math
@@ -46,7 +47,7 @@ def get_mask(input_size, window_size, inner_size, device):
 
     return mask, all_size
 
-
+# 시계열 데이터 각각의 부모 노드 인덱스 저장
 def refer_points(all_sizes, window_size, device):
     """Gather features from PAM's pyramid sequences"""
     input_size = all_sizes[0]
@@ -174,6 +175,7 @@ class EncoderLayer(nn.Module):
             self.slf_attn = PyramidalAttention(n_head, d_model, d_k, d_v, dropout=dropout, normalize_before=normalize_before, q_k_mask=q_k_mask, k_q_mask=k_q_mask)
         else:
             self.slf_attn = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout, normalize_before=normalize_before)
+            # self.slf_attn = GroupedQueryAttention(n_head, d_model, d_k, d_v, num_groups=2,dropout=dropout, normalize_before=normalize_before)
 
         self.pos_ffn = PositionwiseFeedForward(
             d_model, d_inner, dropout=dropout, normalize_before=normalize_before)
@@ -210,7 +212,7 @@ class DecoderLayer(nn.Module):
 
 
 class ConvLayer(nn.Module):
-    def __init__(self, c_in, window_size):
+    def __init__(self, c_in, window_size): #c_in : 128, window_size : 4
         super(ConvLayer, self).__init__()
         self.downConv = nn.Conv1d(in_channels=c_in,
                                   out_channels=c_in,
@@ -263,9 +265,10 @@ class Bottleneck_Construct(nn.Module):
     """Bottleneck convolution CSCM"""
     def __init__(self, d_model, window_size, d_inner):
         super(Bottleneck_Construct, self).__init__()
+        #3층 선언
         if not isinstance(window_size, list):
             self.conv_layers = nn.ModuleList([
-                ConvLayer(d_inner, window_size),
+                ConvLayer(d_inner, window_size),# d_inner : 128 , window_size:#[4,4,4]
                 ConvLayer(d_inner, window_size),
                 ConvLayer(d_inner, window_size)
                 ])
@@ -274,21 +277,22 @@ class Bottleneck_Construct(nn.Module):
             for i in range(len(window_size)):
                 self.conv_layers.append(ConvLayer(d_inner, window_size[i]))
             self.conv_layers = nn.ModuleList(self.conv_layers)
-        self.up = Linear(d_inner, d_model)
-        self.down = Linear(d_model, d_inner)
-        self.norm = nn.LayerNorm(d_model)
+
+        self.up = Linear(d_inner, d_model) # 차원 증강 레이어 128->512
+        self.down = Linear(d_model, d_inner)# 차원 축소 레이어 512->128
+        self.norm = nn.LayerNorm(d_model) #정규화
 
     def forward(self, enc_input):
 
-        temp_input = self.down(enc_input).permute(0, 2, 1)
+        temp_input = self.down(enc_input).permute(0, 2, 1) #출력 텐서의 차원을 재배열하는 함수 호출
         all_inputs = []
         for i in range(len(self.conv_layers)):
             temp_input = self.conv_layers[i](temp_input)
-            all_inputs.append(temp_input)
+            all_inputs.append(temp_input) # all_inputs에 conv_layers 를 거친 벡터가 세개 저장됨.
 
-        all_inputs = torch.cat(all_inputs, dim=2).transpose(1, 2)
+        all_inputs = torch.cat(all_inputs, dim=2).transpose(1, 2) # 리스트요소를 cat
         all_inputs = self.up(all_inputs)
-        all_inputs = torch.cat([enc_input, all_inputs], dim=1)
+        all_inputs = torch.cat([enc_input, all_inputs], dim=1) # 원본과 결합 . 총 4개가 붙여짐.
 
         all_inputs = self.norm(all_inputs)
 
@@ -367,7 +371,7 @@ class Predictor(nn.Module):
         super().__init__()
 
         self.linear = nn.Linear(dim, num_types, bias=False)
-        nn.init.xavier_normal_(self.linear.weight)
+        nn.init.xavier_normal_(self.linear.weight) # 초기에 가중치 초기화
 
     def forward(self, data):
         out = self.linear(data)

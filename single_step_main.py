@@ -84,9 +84,7 @@ def train_epoch(model, training_data, optimizer, opt, epoch):
                       desc='  - (Training)   ', leave=False):
         """ prepare data """
         sequence, label = map(lambda x: x.to(opt.device).squeeze(0), batch)
-
         optimizer.zero_grad()
-
         mean_pre, sigma_pre = model(sequence)
 
         if epoch == 0 and opt.pretrain:
@@ -118,7 +116,6 @@ def train_epoch(model, training_data, optimizer, opt, epoch):
         total_pred_number += likelihood_losses.numel()
 
         optimizer.step()
-
     return total_likelihood / total_pred_number, total_mse / total_pred_number
 
 
@@ -281,6 +278,7 @@ def main():
     opt = arg_parser()
     opt = get_dataset_parameters(opt)
     opt.window_size = eval(opt.window_size)
+    
     print('[Info] parameters: {}'.format(opt))
 
     # default device is CUDA

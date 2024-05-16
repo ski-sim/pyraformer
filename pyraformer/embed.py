@@ -116,12 +116,12 @@ class SingleStepEmbedding(nn.Module):
     def __init__(self, cov_size, num_seq, d_model, input_size, device):
         super().__init__()
 
-        self.cov_size = cov_size
-        self.num_class = num_seq
+        self.cov_size = cov_size #3
+        self.num_class = num_seq #370
         self.cov_emb = nn.Linear(cov_size+1, d_model)
         padding = 1 if torch.__version__>='1.5.0' else 2
         self.data_emb = nn.Conv1d(in_channels=1, out_channels=d_model, kernel_size=3, padding=padding, padding_mode='circular')
-
+        # 512 차원으로 매핑
         self.position = torch.arange(input_size, device=device).unsqueeze(0)
         self.position_vec = torch.tensor([math.pow(10000.0, 2.0 * (i // 2) / d_model) for i in range(d_model)], device=device)
 
@@ -148,7 +148,7 @@ class SingleStepEmbedding(nn.Module):
         covs = torch.cat([covs, seq_ids], dim=-1)
         cov_embedding = self.cov_emb(covs)
         data_embedding = self.data_emb(x[:, :, 0].unsqueeze(2).permute(0, 2, 1)).transpose(1,2)
-        embedding = cov_embedding + data_embedding
+        embedding = cov_embedding + data_embedding #???
 
         position = self.position.repeat(len(x), 1).to(x.device)
         position_emb = self.transformer_embedding(position, self.position_vec.to(x.device))

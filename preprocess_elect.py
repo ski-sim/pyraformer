@@ -25,9 +25,9 @@ import matplotlib.pyplot as plt
 
 def prep_data(data, covariates, data_start, train = True):
     """Divide the training sequence into windows"""
-    time_len = data.shape[0]
-    input_size = window_size-stride_size
-    windows_per_series = np.full((num_series), (time_len-input_size) // stride_size)
+    time_len = data.shape[0] # 744
+    input_size = window_size-stride_size # 192 - 64 = 128
+    windows_per_series = np.full((num_series), (time_len-input_size) // stride_size)#370, 744-128//64
     if train: windows_per_series -= (data_start+stride_size-1) // stride_size
     total_windows = np.sum(windows_per_series)
     x_input = np.zeros((total_windows, window_size, 1 + num_covariates + 1), dtype='float32')
@@ -96,10 +96,10 @@ if __name__ == '__main__':
     global save_path
     csv_path = 'data/LD2011_2014.txt'
     save_name = 'elect'
-    window_size = 192
-    stride_size = 24
+    window_size = 192#192
+    stride_size = 24 #64
     num_covariates = 4
-    train_start = '2011-01-01 00:00:00'
+    train_start = '2014-08-01 00:00:00'
     train_end = '2014-08-31 23:00:00'
     test_start = '2014-08-25 00:00:00' #need additional 7 days as given info
     test_end = '2014-09-07 23:00:00'
@@ -109,13 +109,14 @@ if __name__ == '__main__':
     save_path = os.path.join('data', save_name)
 
     data_frame = pd.read_csv(csv_path, sep=";", index_col=0, parse_dates=True, decimal=',')
-    data_frame = data_frame.resample('1H',label = 'left',closed = 'right').sum()[train_start:test_end]
+    data_frame = data_frame.resample('1h',label = 'left',closed = 'right').sum()[train_start:test_end] # 총 범위로 자름
     data_frame.fillna(0, inplace=True)
-    covariates = gen_covariates(data_frame[train_start:test_end].index, num_covariates)
-    train_data = data_frame[train_start:train_end].values # shape: [seq_length, user_num]
-    test_data = data_frame[test_start:test_end].values
-    data_start = (train_data!=0).argmax(axis=0) #find first nonzero value in each time series
-    total_time = data_frame.shape[0] #32304
-    num_series = data_frame.shape[1] #370
+    covariates = gen_covariates(data_frame[train_start:test_end].index, num_covariates) # 912,4
+    train_data = data_frame[train_start:train_end].values # shape: [seq_length, user_num] , 744,370
+    test_data = data_frame[test_start:test_end].values #336,370
+    data_start = (train_data!=0).argmax(axis=0) #find first nonzero value in each time series (370,0)
+    total_time = data_frame.shape[0] #912
+    
+    num_series = data_frame.shape[1] #370은 시계열 인스턴스 갯수
     prep_data(train_data, covariates, data_start)
     prep_data(test_data, covariates, data_start, train=False)

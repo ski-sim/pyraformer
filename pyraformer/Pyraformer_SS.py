@@ -12,13 +12,13 @@ class Encoder(nn.Module):
     def __init__(self, opt):
         super().__init__()
 
-        self.d_model = opt.d_model
-        self.window_size = opt.window_size
-        self.num_heads = opt.n_head
+        self.d_model = opt.d_model#512
+        self.window_size = opt.window_size #[4,4,4]
+        self.num_heads = opt.n_head #4
         self.mask, self.all_size = get_mask(opt.input_size, opt.window_size, opt.inner_size, opt.device)
-        self.indexes = refer_points(self.all_size, opt.window_size, opt.device)
+        self.indexes = refer_points(self.all_size, opt.window_size, opt.device) 
 
-        if opt.use_tvm:
+        if opt.use_tvm:#False
             assert len(set(self.window_size)) == 1, "Only constant window size is supported."
             q_k_mask = get_q_k(opt.input_size, opt.inner_size, opt.window_size[0], opt.device)
             k_q_mask = get_k_q(q_k_mask)
@@ -29,7 +29,7 @@ class Encoder(nn.Module):
         else:
             self.layers = nn.ModuleList([
                 EncoderLayer(opt.d_model, opt.d_inner_hid, opt.n_head, opt.d_k, opt.d_v, dropout=opt.dropout, \
-                    normalize_before=False) for i in range(opt.n_layer)
+                    normalize_before=False) for i in range(opt.n_layer) #4개 생성
                 ])
 
         self.embedding = SingleStepEmbedding(opt.covariate_size, opt.num_seq, opt.d_model, opt.input_size, opt.device)
@@ -41,15 +41,15 @@ class Encoder(nn.Module):
         seq_enc = self.embedding(sequence)
         mask = self.mask.repeat(len(seq_enc), self.num_heads, 1, 1).to(sequence.device)
 
-        seq_enc = self.conv_layers(seq_enc)
+        seq_enc = self.conv_layers(seq_enc) # (batch,223,512)
 
         for i in range(len(self.layers)):
-            seq_enc, _ = self.layers[i](seq_enc, mask)
+            seq_enc, _ = self.layers[i](seq_enc, mask) # attention layer iteration
 
-        indexes = self.indexes.repeat(seq_enc.size(0), 1, 1, seq_enc.size(2)).to(seq_enc.device)
-        indexes = indexes.view(seq_enc.size(0), -1, seq_enc.size(2))
-        all_enc = torch.gather(seq_enc, 1, indexes)
-        all_enc = all_enc.view(seq_enc.size(0), self.all_size[0], -1)
+        indexes = self.indexes.repeat(seq_enc.size(0), 1, 1, seq_enc.size(2)).to(seq_enc.device) # (batch,169,4,512)
+        indexes = indexes.view(seq_enc.size(0), -1, seq_enc.size(2)) # (batch,169*4,512)
+        all_enc = torch.gather(seq_enc, 1, indexes) # (batch,169*4,512)
+        all_enc = all_enc.view(seq_enc.size(0), self.all_size[0], -1) # (batch,169,512*4)
 
         return all_enc
 
@@ -65,12 +65,12 @@ class Model(nn.Module):
         self.mean_hidden = Predictor(4 * opt.d_model, 1)
         self.var_hidden = Predictor(4 * opt.d_model, 1)
 
-        self.softplus = nn.Softplus()
+        self.softplus = nn.Softplus() # activation 함수
 
     def forward(self, data):
         enc_output = self.encoder(data)
 
-        mean_pre = self.mean_hidden(enc_output)
+        mean_pre = self.mean_hidden(enc_output) 
         var_hid = self.var_hidden(enc_output)
         var_pre = self.softplus(var_hid)
         mean_pre = self.softplus(mean_pre)

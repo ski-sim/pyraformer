@@ -1,0 +1,8 @@
+__pycache__/
+# Virtual Environments
+pyrvenv/
+
+# Data and models
+data/
+models/
+LD2011_2014.txt
