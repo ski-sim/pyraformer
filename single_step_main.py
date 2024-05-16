@@ -58,7 +58,9 @@ def get_dataset_parameters(opt):
     opt.ignore_zero = dataset2ignore_zero[opt.dataset]
     return opt
 
-
+#TOPK를 왜 이런 식으로 구했는지에 대해선 여러 생각이 가능할 거 같은데 뒤로 갈 수록 topk가 줄어드는 것을 볼 수 있음.
+#우선 batch_size를 기준으로 한 걸 보면 에폭이 진행될수록 어느 정도 loss가 안정화되니까 일부분에 대해서만 계산하면 된다고 생각한듯.
+#결국 계산 속도가 에폭 뒤로 갈 수록 빨라질 듯?
 def get_topk(epoch, batch_size):
     if epoch <= 1:
         topk = 0
@@ -105,6 +107,7 @@ def train_epoch(model, training_data, optimizer, opt, epoch):
         likelihood_loss = likelihood_losses.mean()
         mse_loss = mse_losses.mean()
 
+        #이건 MSE가 맞는데
         if index % opt.visualize_fre == 0:
             print('Likelihood loss:{}, MSE loss:{}'.format(likelihood_loss, mse_loss))
 
@@ -112,10 +115,13 @@ def train_epoch(model, training_data, optimizer, opt, epoch):
         loss.backward()
         index += 1
         total_likelihood += likelihood_losses.sum().item()
+        #이건 Total SE임 (MSE가 아님)
         total_mse += mse_losses.sum().item()
         total_pred_number += likelihood_losses.numel()
 
         optimizer.step()
+    #pred_number로 나눠주면서 MSE가 완성됨.
+    #신기한게 Train_epoch에선 NRMSE가 아니라 MSE를 반환해줌.
     return total_likelihood / total_pred_number, total_mse / total_pred_number
 
 
@@ -138,19 +144,25 @@ def eval_epoch(model, validation_data, opt):
 
             """ forward """
             mu_pre, sigma_pre = model.test(sequence, v)
-
+            #MSE라고 되어있긴 한데 실제로는 NRMSE임
             likelihood_losses, mse_losses = criterion(mu_pre, sigma_pre, label)
             ae_losses = AE_loss(mu_pre, label, opt.ignore_zero)
 
             index += 1
 
             total_likelihood += torch.sum(likelihood_losses).detach().double()
+            #SE 전체합
             total_se += torch.sum(mse_losses).detach().double()
+            #AE 전체합
             total_ae += torch.sum(ae_losses).detach().double()
             total_label += torch.sum(label).detach().item()
             total_pred_num += len(likelihood_losses)
 
+    #torch.sqrt(total_se/total_pred_num)는 RMSE가 완성됨.
+    #total_label/total_pred_num은 NRMSE가 완성됨.
+    #N은 정규화를 했다는 뜻인데 여기서는 실제값의 평균으로 나눠줌으로써 정규화를 진행했음.
     se = torch.sqrt(total_se / total_pred_num) / (total_label / total_pred_num)
+    #MAE 계산
     ae = total_ae / total_label
 
     return total_likelihood / total_pred_num, se, ae
