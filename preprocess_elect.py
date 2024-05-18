@@ -120,3 +120,9 @@ if __name__ == '__main__':
     num_series = data_frame.shape[1] #370은 시계열 인스턴스 갯수
     prep_data(train_data, covariates, data_start)
     prep_data(test_data, covariates, data_start, train=False)
+
+    # train_data_elct.npy : 389101,192,6
+    # train_label_elect.npy : 389101,192
+    # train_v_elect.npy : 389101,2
+    # test는 389101 이 아닌 2590
+    # train 길이가 389101이기 때문에 훈련시키면 batch_size 8일때 48673개의 배치가 나오게 됨
