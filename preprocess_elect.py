@@ -22,6 +22,14 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+#elect 기준으로 계산해보면 32304,370인 데이터에서
+#window_size 192, stride_size 24 (디폴트) 로 설정하면
+#(32304-192)//24 을 수행하므로 1339개의 윈도우가 나오게 되는데
+#370개의 time-series가 있으므로 1339*370을 하면 495430이 나옴.
+#그런데 train_data를 확인해보면 389101개임.
+#이 이유는 data_start를 설정해주는 과정에서 처음으로 0이 나오지 않는 지점을 훈련데이터의 시작지점으로 삼아서인듯.
+#대략 확인해보면 8760 정도에서 처음으로 0이 아닌 데이터가 나오는 시계열이 약 180개.
+#대충 계산해보면 맞는 수치로 확인됨
 
 def prep_data(data, covariates, data_start, train = True):
     """Divide the training sequence into windows"""
