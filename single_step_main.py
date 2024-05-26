@@ -85,13 +85,13 @@ def train_epoch(model, training_data, optimizer, opt, epoch):
     for batch in tqdm(training_data, mininterval=2,
                       desc='  - (Training)   ', leave=False):
         """ prepare data """
-        sequence, label = map(lambda x: x.to(opt.device).squeeze(0), batch)
+        sequence, label = map(lambda x: x.to(opt.device).squeeze(0), batch) # sequence : torch.Size([192, 169, 5])
         optimizer.zero_grad()
-        mean_pre, sigma_pre = model(sequence)
+        mean_pre, sigma_pre = model(sequence) # mean_pre : torch.Size([192, 169])
 
         if epoch == 0 and opt.pretrain:
             full_label = sequence[:, :, 0].clone()
-            full_label[:, -1] = label
+            full_label[:, -1] = label  
             likelihood_losses, mse_losses = criterion(mean_pre, sigma_pre, full_label, 0)
             mean_pre = mean_pre[:, -1]
             sigma_pre = sigma_pre[:, -1]
@@ -100,7 +100,7 @@ def train_epoch(model, training_data, optimizer, opt, epoch):
                 topk = get_topk(epoch, len(sequence))
             else:
                 topk = 0
-            mean_pre = mean_pre[:, -1]
+            mean_pre = mean_pre[:, -1]  # torch.Size([192])
             sigma_pre = sigma_pre[:, -1]
             likelihood_losses, mse_losses = criterion(mean_pre, sigma_pre, label, topk)
 
@@ -140,10 +140,10 @@ def eval_epoch(model, validation_data, opt):
         for batch in tqdm(validation_data, mininterval=2,
                           desc='  - (Validation) ', leave=False):
             """ prepare data """
-            sequence, label, v = map(lambda x: x.to(opt.device).squeeze(0), batch)
+            sequence, label, v = map(lambda x: x.to(opt.device).squeeze(0), batch) # torch.Size([24, 169, 5])
 
             """ forward """
-            mu_pre, sigma_pre = model.test(sequence, v)
+            mu_pre, sigma_pre = model.test(sequence, v) # mu_pre : torch.Size([24])
             #MSE라고 되어있긴 한데 실제로는 NRMSE임
             likelihood_losses, mse_losses = criterion(mu_pre, sigma_pre, label)
             ae_losses = AE_loss(mu_pre, label, opt.ignore_zero)
@@ -167,13 +167,21 @@ def eval_epoch(model, validation_data, opt):
 
     return total_likelihood / total_pred_num, se, ae
 
-
+import csv
 def train(model, optimizer, scheduler, opt, model_save_dir):
     """ Start training. """
     best_metrics = []
     best_nrmse = 10000
 
     index_names = ['Best Epoch', 'Log-Likelihood', 'NMSE', 'NMAE']
+
+    # CSV 파일 경로 설정
+    csv_path = f"{model_save_dir}/epoch_results.csv"
+
+    # CSV 파일 헤더 작성
+    with open(csv_path, 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['Epoch', 'Train Log-Likelihood', 'Train MSE', 'Valid Log-Likelihood', 'Valid RMSE', 'Valid NMAE'])
 
     for epoch_i in range(opt.epoch):
         epoch = epoch_i + 1
@@ -215,6 +223,12 @@ def train(model, optimizer, scheduler, opt, model_save_dir):
 
         print(index_names)
         print(best_metrics)
+
+        # CSV 파일에 결과 추가
+        with open(csv_path, 'a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([epoch, train_likelihood, train_mse, valid_likelihood, valid_mse, valid_mae])
+
 
     return index_names, best_metrics
 

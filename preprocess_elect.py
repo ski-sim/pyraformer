@@ -31,14 +31,14 @@ import matplotlib.pyplot as plt
 #대략 확인해보면 8760 정도에서 처음으로 0이 아닌 데이터가 나오는 시계열이 약 180개.
 #대충 계산해보면 맞는 수치로 확인됨
 
-def prep_data(data, covariates, data_start, train = True):
+def prep_data(data, covariates, data_start, train = True): # covariate는 전체 length에 대한 배열
     """Divide the training sequence into windows"""
-    time_len = data.shape[0] # 744
-    input_size = window_size-stride_size # 192 - 64 = 128
-    windows_per_series = np.full((num_series), (time_len-input_size) // stride_size)#370, 744-128//64
+    time_len = data.shape[0] # 32304
+    input_size = window_size-stride_size # 192 - 24 = 168
+    windows_per_series = np.full((num_series), (time_len-input_size) // stride_size)#370, (32304-128)//24
     if train: windows_per_series -= (data_start+stride_size-1) // stride_size
-    total_windows = np.sum(windows_per_series)
-    x_input = np.zeros((total_windows, window_size, 1 + num_covariates + 1), dtype='float32')
+    total_windows = np.sum(windows_per_series) # total_windows = 389101
+    x_input = np.zeros((total_windows, window_size, 1 + num_covariates + 1), dtype='float32') 
     label = np.zeros((total_windows, window_size), dtype='float32')
     v_input = np.zeros((total_windows, 2), dtype='float32')
     count = 0
@@ -47,7 +47,7 @@ def prep_data(data, covariates, data_start, train = True):
     for series in trange(num_series):
         cov_age = stats.zscore(np.arange(total_time-data_start[series])) # shape:(series_len,)
         if train:
-            covariates[data_start[series]:time_len, 0] = cov_age[:time_len-data_start[series]]
+            covariates[data_start[series]:time_len, 0] = cov_age[:time_len-data_start[series]] # positional encoding
         else:
             covariates[:, 0] = cov_age[-time_len:]
         for i in range(windows_per_series[series]):
@@ -104,10 +104,10 @@ if __name__ == '__main__':
     global save_path
     csv_path = 'data/LD2011_2014.txt'
     save_name = 'elect'
-    window_size = 192#192
-    stride_size = 24 #64
+    window_size = 192 #192
+    stride_size = 24 
     num_covariates = 4
-    train_start = '2014-08-01 00:00:00'
+    train_start = '2011-01-01 00:00:00'
     train_end = '2014-08-31 23:00:00'
     test_start = '2014-08-25 00:00:00' #need additional 7 days as given info
     test_end = '2014-09-07 23:00:00'
@@ -117,13 +117,13 @@ if __name__ == '__main__':
     save_path = os.path.join('data', save_name)
 
     data_frame = pd.read_csv(csv_path, sep=";", index_col=0, parse_dates=True, decimal=',')
-    data_frame = data_frame.resample('1h',label = 'left',closed = 'right').sum()[train_start:test_end] # 총 범위로 자름
+    data_frame = data_frame.resample('1h',label = 'left',closed = 'right').sum()[train_start:test_end] # hourly data로 변환
     data_frame.fillna(0, inplace=True)
-    covariates = gen_covariates(data_frame[train_start:test_end].index, num_covariates) # 912,4
-    train_data = data_frame[train_start:train_end].values # shape: [seq_length, user_num] , 744,370
-    test_data = data_frame[test_start:test_end].values #336,370
+    covariates = gen_covariates(data_frame[train_start:test_end].index, num_covariates) # shape : (32304,4)
+    train_data = data_frame[train_start:train_end].values # shape: [seq_length, user_num] :  (32136,370)
+    test_data = data_frame[test_start:test_end].values # shape : (336,370)
     data_start = (train_data!=0).argmax(axis=0) #find first nonzero value in each time series (370,0)
-    total_time = data_frame.shape[0] #912
+    total_time = data_frame.shape[0] # total seq_length : 32304
     
     num_series = data_frame.shape[1] #370은 시계열 인스턴스 갯수
     prep_data(train_data, covariates, data_start)

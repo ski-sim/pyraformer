@@ -17,6 +17,7 @@ class Encoder(nn.Module):
         self.num_heads = opt.n_head #4
         self.mask, self.all_size = get_mask(opt.input_size, opt.window_size, opt.inner_size, opt.device)
         self.indexes = refer_points(self.all_size, opt.window_size, opt.device) 
+        
 
         if opt.use_tvm:#False
             assert len(set(self.window_size)) == 1, "Only constant window size is supported."
@@ -42,7 +43,10 @@ class Encoder(nn.Module):
         mask = self.mask.repeat(len(seq_enc), self.num_heads, 1, 1).to(sequence.device)
 
         seq_enc = self.conv_layers(seq_enc) # (batch,223,512)
-
+        #
+        self.lstm = nn.LSTM(bidirectional = True, input_size = seq_enc.shape[2], hidden_size = self.d_model//2)
+        seq_enc = self.lstm(seq_enc)[0]
+        #
         for i in range(len(self.layers)):
             seq_enc, _ = self.layers[i](seq_enc, mask) # attention layer iteration
 
@@ -72,7 +76,7 @@ class Model(nn.Module):
 
         mean_pre = self.mean_hidden(enc_output) 
         var_hid = self.var_hidden(enc_output)
-        var_pre = self.softplus(var_hid)
+        var_pre = self.softplus(var_hid) # (batch, 169, 1)
         mean_pre = self.softplus(mean_pre)
 
         return mean_pre.squeeze(2), var_pre.squeeze(2)

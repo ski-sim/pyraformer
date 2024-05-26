@@ -390,13 +390,13 @@ def preprocess_flow(csv_path):
 
 
 """Single step dataloader"""
-def split(split_start, label, cov, pred_length):
+def split(split_start, label, cov, pred_length): # label : torch.Size([8, 192])
     all_data = []
-    for batch_idx in range(len(label)):
+    for batch_idx in range(len(label)): #8
         batch_label = label[batch_idx]
         for i in range(pred_length):
             single_data = batch_label[i:(split_start+i)].clone().unsqueeze(1)
-            single_data[-1] = -1
+            single_data[-1] = -1 # 예측할 값
             single_cov = cov[batch_idx, i:(split_start+i), :].clone()
             temp_data = [single_data, single_cov]
             single_data = torch.cat(temp_data, dim=1)
@@ -416,7 +416,7 @@ class electTrainDataset(Dataset):
         v = np.load(os.path.join(data_path, f'train_v_{data_name}.npy'))
         weights = torch.as_tensor(np.abs(v[:,0])/np.sum(np.abs(v[:,0])), dtype=torch.double)
         num_samples = weights.size(0)
-        sample_index = torch.multinomial(weights, num_samples, True)
+        sample_index = torch.multinomial(weights, num_samples, True) # 가중치가 큰 윈도우를 선택
         self.data = self.data[sample_index]
 
         self.label = torch.from_numpy(np.load(os.path.join(data_path, f'train_label_{data_name}.npy')))
@@ -431,8 +431,8 @@ class electTrainDataset(Dataset):
 
     def __getitem__(self, index):
         if (index+1) <= self.train_len:
-            all_data = self.data[index*self.batch_size:(index+1)*self.batch_size].clone()
-            label = self.label[index*self.batch_size:(index+1)*self.batch_size].clone()
+            all_data = self.data[index*self.batch_size:(index+1)*self.batch_size].clone() # torch.Size([8, 192, 6])
+            label = self.label[index*self.batch_size:(index+1)*self.batch_size].clone() # (8,192)
         else:
             all_data = self.data[index*self.batch_size:].clone()
             label = self.label[index*self.batch_size:].clone()
