@@ -44,7 +44,7 @@ class Encoder(nn.Module):
 
         seq_enc = self.conv_layers(seq_enc) # (batch,223,512)
         #
-        self.lstm = nn.LSTM(bidirectional = True, input_size = seq_enc.shape[2], hidden_size = self.d_model//2)
+        self.lstm = nn.LSTM(bidirectional = True, input_size = seq_enc.shape[2], hidden_size = self.d_model//2).to('cuda:0')
         seq_enc = self.lstm(seq_enc)[0]
         #
         for i in range(len(self.layers)):
