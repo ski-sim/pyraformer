@@ -210,9 +210,8 @@ class DecoderLayer(nn.Module):
 
         return enc_output, enc_slf_attn
 
-
 class ConvLayer(nn.Module):
-    def __init__(self, c_in, window_size): #c_in : 128, window_size : 4
+    def __init__(self, c_in, window_size):  # c_in : 128, window_size : 4
         super(ConvLayer, self).__init__()
         self.downConv = nn.Conv1d(in_channels=c_in,
                                   out_channels=c_in,
@@ -221,11 +220,16 @@ class ConvLayer(nn.Module):
         self.norm = nn.BatchNorm1d(c_in)
         self.activation = nn.ELU()
 
+
+
     def forward(self, x):
+        self.lstm = nn.LSTM(bidirectional=True, input_size=x.shape[2], hidden_size=x.shape[2]//2)
+        x, _ = self.lstm(x)
         x = self.downConv(x)
         x = self.norm(x)
         x = self.activation(x)
         return x
+
 
 
 class Conv_Construct(nn.Module):

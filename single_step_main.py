@@ -175,13 +175,7 @@ def train(model, optimizer, scheduler, opt, model_save_dir):
 
     index_names = ['Best Epoch', 'Log-Likelihood', 'NMSE', 'NMAE']
 
-    # CSV 파일 경로 설정
-    csv_path = f"{model_save_dir}/epoch_results.csv"
-
-    # CSV 파일 헤더 작성
-    with open(csv_path, 'w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(['Epoch', 'Train Log-Likelihood', 'Train MSE', 'Valid Log-Likelihood', 'Valid RMSE', 'Valid NMAE'])
+    result_data=[]
 
     for epoch_i in range(opt.epoch):
         epoch = epoch_i + 1
@@ -225,10 +219,16 @@ def train(model, optimizer, scheduler, opt, model_save_dir):
         print(best_metrics)
 
         # CSV 파일에 결과 추가
-        with open(csv_path, 'a', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow([epoch, train_likelihood, train_mse, valid_likelihood, valid_mse, valid_mae])
+        result_data.append({
+        'epoch': epoch_i,
+        'train_likelihood': train_likelihood,
+        'train_mse': train_mse,
+        'valid_likelihood': valid_likelihood,
+        'valid_mse': valid_mse,
+        'valid_mae': valid_mae})
 
+        result_df=pd.DataFrame(result_data)
+        result_df.to_csv('./result.csv', index=False)         
 
     return index_names, best_metrics
 
@@ -312,7 +312,7 @@ def main():
         opt.device = torch.device('cuda')
     else:
         opt.device = torch.device('cpu')
-
+    print( opt.device)
     """ prepare model """
     model = eval(opt.model).Model(opt)
     model.to(opt.device)
