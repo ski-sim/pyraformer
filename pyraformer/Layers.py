@@ -265,7 +265,7 @@ class Bottleneck_Construct(nn.Module):
     """Bottleneck convolution CSCM"""
     def __init__(self, d_model, window_size, d_inner):
         super(Bottleneck_Construct, self).__init__()
-        #3층 선언
+        
         if not isinstance(window_size, list):
             self.conv_layers = nn.ModuleList([
                 ConvLayer(d_inner, window_size),# d_inner : 128 , window_size:#[4,4,4]
@@ -284,15 +284,15 @@ class Bottleneck_Construct(nn.Module):
 
     def forward(self, enc_input):
 
-        temp_input = self.down(enc_input).permute(0, 2, 1) #출력 텐서의 차원을 재배열하는 함수 호출
+        temp_input = self.down(enc_input).permute(0, 2, 1) 
         all_inputs = []
         for i in range(len(self.conv_layers)):
             temp_input = self.conv_layers[i](temp_input)
-            all_inputs.append(temp_input) # all_inputs에 conv_layers 를 거친 벡터가 세개 저장됨.
+            all_inputs.append(temp_input) # all_inputs에 conv_layers 를 거친 벡터 저장
 
-        all_inputs = torch.cat(all_inputs, dim=2).transpose(1, 2) # 리스트요소를 cat
+        all_inputs = torch.cat(all_inputs, dim=2).transpose(1, 2) # concatenate
         all_inputs = self.up(all_inputs)
-        all_inputs = torch.cat([enc_input, all_inputs], dim=1) # 원본과 결합 . 총 4개가 붙여짐.
+        all_inputs = torch.cat([enc_input, all_inputs], dim=1) # 총4개가 concatenate
 
         all_inputs = self.norm(all_inputs)
 

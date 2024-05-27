@@ -43,9 +43,7 @@ class Encoder(nn.Module):
         mask = self.mask.repeat(len(seq_enc), self.num_heads, 1, 1).to(sequence.device)
 
         seq_enc = self.conv_layers(seq_enc) # (batch,223,512)
-        #
-        self.lstm = nn.LSTM(bidirectional = True, input_size = seq_enc.shape[2], hidden_size = self.d_model//2)
-        seq_enc = self.lstm(seq_enc)[0]
+      
         #
         for i in range(len(self.layers)):
             seq_enc, _ = self.layers[i](seq_enc, mask) # attention layer iteration
